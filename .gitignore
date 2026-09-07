@@ -1,0 +1,10 @@
+/target
+Cargo.lock
+.env
+
+# Operational data — created at runtime, not part of the app source.
+/sources
+/published
+
+design.md 
+review.md 
