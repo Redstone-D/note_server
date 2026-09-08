@@ -44,6 +44,34 @@ middleware! {
 }
 
 endpoint! {
+    APP.url("/"),
+    pub site_index<HTTP> {
+        let title = std::env::var("NOTES_SITE_TITLE").unwrap_or_else(|_| "Notes".into());
+
+        let mut ids: Vec<&str> = PROJECTS.keys().map(|s| s.as_str()).collect();
+        ids.sort();
+
+        let mut projects_value = akari::Value::new_list();
+        for id in ids {
+            let manifest_path = CONFIG_ROOT.join(id).join(ProjectManifest::FILE_NAME);
+            let display_title = ProjectManifest::read(&manifest_path)
+                .map(|m| m.title)
+                .unwrap_or_else(|_| id.to_string());
+            let mut p = akari::Value::new_dict();
+            p.set("id", id.to_string());
+            p.set("title", display_title);
+            projects_value.push(p);
+        }
+
+        akari_render!(
+            "index.html",
+            title = title,
+            projects = projects_value
+        )
+    }
+}
+
+endpoint! {
     APP.url("/<str:project>"),
     pub course_landing<HTTP> {
         let project = req.param("project").unwrap_or_default();
@@ -86,14 +114,17 @@ endpoint! {
     pub course_static<HTTP> {
         let project = req.param("project").unwrap_or_default();
         let rest = req.param("rest").unwrap_or_default();
+        // Hotaru's route matcher keeps path captures raw (only query args are
+        // percent-decoded). Decode manually so `%20` -> space, etc.
+        let rest = hotaru::hotaru_lib::url_encoding::decode_url_owned(&rest);
 
         if rest.is_empty() {
-            return text_response("not found").status(StatusCode::NOT_FOUND);
+            return text_response("no file specified").status(StatusCode::NOT_FOUND);
         }
 
         let bytes = match REGISTRY.read_project_file(&project, &rest) {
             Ok(b) => b,
-            Err(_) => return text_response("not found").status(StatusCode::NOT_FOUND),
+            Err(_) => return text_response("fail to read content: ".to_owned() + &rest).status(StatusCode::NOT_FOUND),
         };
 
         let start_line = HttpStartLine::new_response(HttpVersion::Http11, StatusCode::OK);

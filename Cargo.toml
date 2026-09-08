@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 hotaru = { version = "=0.8.6", default-features = false, features = [
-    "trans", "auto-reg", "http", "tokio", "full_regex", "template"
+    "trans", "auto-reg", "http", "tokio", "full_regex", "template", "lib"
 ] }
 tokio = { version = "1", features = ["rt"] }
 akari = { version = "=0.2.8", default-features = false }
