@@ -6,5 +6,8 @@ Cargo.lock
 /sources
 /published
 
-design.md 
-review.md 
+# Per-deployment project config — differs across machines.
+/config
+
+design.md
+review.md

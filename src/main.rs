@@ -1,7 +1,7 @@
 use hotaru::http::*;
 use hotaru::prelude::*;
 use notes_server::project::{ProjectManifest, ProjectTree};
-use notes_server::projects::PROJECTS;
+use notes_server::projects::{CONFIG_ROOT, PROJECTS};
 use notes_server::registry::REGISTRY;
 use std::collections::{HashMap, HashSet};
 use std::sync::{LazyLock, Mutex};
@@ -57,7 +57,7 @@ endpoint! {
             Err(_) => return text_response("not found").status(StatusCode::NOT_FOUND),
         };
 
-        let manifest_path = sandbox.join(ProjectManifest::FILE_NAME);
+        let manifest_path = CONFIG_ROOT.join(&project).join(ProjectManifest::FILE_NAME);
         let manifest = match ProjectManifest::read(&manifest_path) {
             Ok(m) => m,
             Err(_) => return text_response("manifest missing")
