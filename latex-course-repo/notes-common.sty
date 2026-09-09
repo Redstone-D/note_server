@@ -1,0 +1,593 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{notes-common}[2026/09/09 Shared notes style and direct PDF references]
+
+\makeatletter
+\@ifundefined{notesServerRoot}{%
+  \PackageError{notes-common}{Missing \string\notesServerRoot}%
+    {Load a project-info package before notes-common.}%
+}{}
+\@ifundefined{notesProjectName}{%
+  \PackageError{notes-common}{Missing \string\notesProjectName}%
+    {Load a project-info package before notes-common.}%
+}{}
+\makeatother
+
+\RequirePackage[a4paper,margin=18mm]{geometry}
+\RequirePackage[T1]{fontenc}
+\RequirePackage{amsmath,amssymb,amsthm}
+\RequirePackage{enumitem}
+\RequirePackage{xcolor}
+\RequirePackage{hyperref}
+\RequirePackage[nameinlink]{cleveref}
+\RequirePackage{xparse}
+
+\setlength{\parindent}{0pt}
+\pagestyle{empty}
+
+% Every content type has an independent counter beneath the section number.
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\crefname{theorem}{theorem}{theorems}
+\Crefname{theorem}{Theorem}{Theorems}
+
+\newtheorem{proposition}{Proposition}[section]
+\crefname{proposition}{proposition}{propositions}
+\Crefname{proposition}{Proposition}{Propositions}
+
+\newtheorem{lemma}{Lemma}[section]
+\crefname{lemma}{lemma}{lemmas}
+\Crefname{lemma}{Lemma}{Lemmas}
+
+\newtheorem{corollary}{Corollary}[section]
+\crefname{corollary}{corollary}{corollaries}
+\Crefname{corollary}{Corollary}{Corollaries}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\crefname{definition}{definition}{definitions}
+\Crefname{definition}{Definition}{Definitions}
+
+\newtheorem{example}{Example}[section]
+\crefname{example}{example}{examples}
+\Crefname{example}{Example}{Examples}
+
+\newtheorem{exercise}{Exercise}[section]
+\crefname{exercise}{exercise}{exercises}
+\Crefname{exercise}{Exercise}{Exercises}
+
+\newtheorem{convention}{Convention}[section]
+\crefname{convention}{convention}{conventions}
+\Crefname{convention}{Convention}{Conventions}
+
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}[section]
+\crefname{remark}{remark}{remarks}
+\Crefname{remark}{Remark}{Remarks}
+
+% Public environments take [optional title]{optional semantic identifier}.
+% If the identifier is omitted, a kebab-case identifier is derived from the
+% title. For example, [Open Sets] creates def:open-sets.
+\ExplSyntaxOn
+\tl_new:N \l__notesenv_id_tl
+\tl_new:N \l__notesenv_label_tl
+\tl_new:N \l__notesenv_target_tl
+\bool_new:N \g__notesenv_show_ids_bool
+\bool_gset_true:N \g__notesenv_show_ids_bool
+
+\NewDocumentCommand{\notesShowIDs}{}
+  { \bool_gset_true:N \g__notesenv_show_ids_bool }
+\NewDocumentCommand{\notesHideIDs}{}
+  { \bool_gset_false:N \g__notesenv_show_ids_bool }
+
+\cs_new_eq:NN \__notesenv_definition_begin: \definition
+\cs_new_eq:NN \__notesenv_definition_end: \enddefinition
+\cs_new_eq:NN \__notesenv_theorem_begin: \theorem
+\cs_new_eq:NN \__notesenv_theorem_end: \endtheorem
+\cs_new_eq:NN \__notesenv_proposition_begin: \proposition
+\cs_new_eq:NN \__notesenv_proposition_end: \endproposition
+\cs_new_eq:NN \__notesenv_lemma_begin: \lemma
+\cs_new_eq:NN \__notesenv_lemma_end: \endlemma
+\cs_new_eq:NN \__notesenv_corollary_begin: \corollary
+\cs_new_eq:NN \__notesenv_corollary_end: \endcorollary
+\cs_new_eq:NN \__notesenv_example_begin: \example
+\cs_new_eq:NN \__notesenv_example_end: \endexample
+\cs_new_eq:NN \__notesenv_exercise_begin: \exercise
+\cs_new_eq:NN \__notesenv_exercise_end: \endexercise
+\cs_new_eq:NN \__notesenv_convention_begin: \convention
+\cs_new_eq:NN \__notesenv_convention_end: \endconvention
+\cs_new_eq:NN \__notesenv_remark_begin: \remark
+\cs_new_eq:NN \__notesenv_remark_end: \endremark
+\cs_new_eq:NN \__notesenv_proof_begin: \proof
+\cs_new_eq:NN \__notesenv_proof_end: \endproof
+
+\msg_new:nnn { notes-common } { invalid-semantic-id }
+  {
+    Invalid~semantic~identifier~'#1'.~Use~lowercase~kebab-case,
+    ~for~example~'open-set'.
+  }
+
+\cs_new_protected:Npn \__notesenv_slug_from_title:n #1
+  {
+    \tl_set:Nx \l__notesenv_id_tl
+      { \tl_lower_case:n { \tl_to_str:n {#1} } }
+    \regex_replace_all:nnN { [^a-z0-9]+ } { - } \l__notesenv_id_tl
+    \regex_replace_once:nnN { \A -+ } { } \l__notesenv_id_tl
+    \regex_replace_once:nnN { -+ \Z } { } \l__notesenv_id_tl
+  }
+
+\cs_new_protected:Npn \__notesenv_add_label:nnn #1#2#3
+  {
+    \IfNoValueTF{#3}
+      {
+        \IfNoValueTF{#2}
+          { \tl_clear:N \l__notesenv_id_tl }
+          { \__notesenv_slug_from_title:n {#2} }
+      }
+      { \tl_set:Nx \l__notesenv_id_tl { \tl_trim_spaces:n {#3} } }
+
+    % An untitled environment without an explicit ID remains unlabeled.
+    \tl_if_blank:VF \l__notesenv_id_tl
+      {
+        \regex_match:nVTF
+          { \A [a-z0-9]+ (?: - [a-z0-9]+ )* \Z }
+          \l__notesenv_id_tl
+          {
+            \tl_set:Nx \l__notesenv_label_tl
+              { #1 : \l__notesenv_id_tl }
+            \tl_set:Nx \l__notesenv_target_tl
+              { notes.#1.\l__notesenv_id_tl }
+            \exp_args:NV \hypertarget \l__notesenv_target_tl { }
+            \exp_args:NV \label \l__notesenv_label_tl
+            \bool_if:NT \g__notesenv_show_ids_bool
+              {
+                \group_begin:
+                  \normalfont\scriptsize\color{gray}
+                  \texttt{[\tl_use:N \l__notesenv_label_tl]}
+                \group_end:
+                \nobreak\space
+              }
+          }
+          {
+            \msg_error:nnx
+              { notes-common } { invalid-semantic-id } { \l__notesenv_id_tl }
+          }
+      }
+  }
+
+\RenewDocumentEnvironment{definition}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_definition_begin: }
+      { \__notesenv_definition_begin: [#1] }
+    \__notesenv_add_label:nnn {def} {#1} {#2}
+  }
+  { \__notesenv_definition_end: }
+
+\RenewDocumentEnvironment{theorem}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_theorem_begin: }
+      { \__notesenv_theorem_begin: [#1] }
+    \__notesenv_add_label:nnn {thm} {#1} {#2}
+  }
+  { \__notesenv_theorem_end: }
+
+\RenewDocumentEnvironment{proposition}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_proposition_begin: }
+      { \__notesenv_proposition_begin: [#1] }
+    \__notesenv_add_label:nnn {prop} {#1} {#2}
+  }
+  { \__notesenv_proposition_end: }
+
+\RenewDocumentEnvironment{lemma}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_lemma_begin: }
+      { \__notesenv_lemma_begin: [#1] }
+    \__notesenv_add_label:nnn {lem} {#1} {#2}
+  }
+  { \__notesenv_lemma_end: }
+
+\RenewDocumentEnvironment{corollary}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_corollary_begin: }
+      { \__notesenv_corollary_begin: [#1] }
+    \__notesenv_add_label:nnn {cor} {#1} {#2}
+  }
+  { \__notesenv_corollary_end: }
+
+\RenewDocumentEnvironment{example}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_example_begin: }
+      { \__notesenv_example_begin: [#1] }
+    \__notesenv_add_label:nnn {ex} {#1} {#2}
+  }
+  { \__notesenv_example_end: }
+
+\RenewDocumentEnvironment{exercise}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_exercise_begin: }
+      { \__notesenv_exercise_begin: [#1] }
+    \__notesenv_add_label:nnn {exc} {#1} {#2}
+  }
+  { \__notesenv_exercise_end: }
+
+\RenewDocumentEnvironment{convention}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_convention_begin: }
+      { \__notesenv_convention_begin: [#1] }
+    \__notesenv_add_label:nnn {conv} {#1} {#2}
+  }
+  { \__notesenv_convention_end: }
+
+\RenewDocumentEnvironment{remark}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_remark_begin: }
+      { \__notesenv_remark_begin: [#1] }
+    \__notesenv_add_label:nnn {rem} {#1} {#2}
+  }
+  { \__notesenv_remark_end: }
+
+% Keep the standard "Proof." heading when untitled. A descriptive title uses
+% the compact heading "Pf. <title>." while retaining amsthm's QED handling.
+\RenewDocumentEnvironment{proof}{o}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_proof_begin: }
+      { \__notesenv_proof_begin: [Pf.\ #1] }
+  }
+  { \__notesenv_proof_end: }
+
+% Compact authoring aliases; full environment names remain available.
+\cs_new_eq:NN \dfn \definition
+\cs_new_eq:NN \enddfn \enddefinition
+\cs_new_eq:NN \thm \theorem
+\cs_new_eq:NN \endthm \endtheorem
+\cs_new_eq:NN \prop \proposition
+\cs_new_eq:NN \endprop \endproposition
+\cs_new_eq:NN \lem \lemma
+\cs_new_eq:NN \endlem \endlemma
+\cs_new_eq:NN \cor \corollary
+\cs_new_eq:NN \endcor \endcorollary
+\cs_new_eq:NN \rem \remark
+\cs_new_eq:NN \endrem \endremark
+\cs_new_eq:NN \ex \example
+\cs_new_eq:NN \endex \endexample
+\cs_new_eq:NN \exc \exercise
+\cs_new_eq:NN \endexc \endexercise
+\cs_new_eq:NN \conv \convention
+\cs_new_eq:NN \endconv \endconvention
+\ExplSyntaxOff
+
+% Direct PDF references carry their own location and semantic ID. No JSON,
+% remote AUX file, or build-time program is required.
+\ExplSyntaxOn
+
+\seq_new:N \g__notesxref_used_documents_seq
+\seq_new:N \l__notesxref_parts_seq
+\seq_new:N \l__notesxref_label_match_seq
+\bool_new:N \l__notesxref_valid_bool
+\bool_new:N \l__notesxref_first_bool
+\tl_new:N \l__notesxref_reference_tl
+\tl_new:N \l__notesxref_server_tl
+\tl_new:N \l__notesxref_project_tl
+\tl_new:N \l__notesxref_document_tl
+\tl_new:N \l__notesxref_label_tl
+\tl_new:N \l__notesxref_kind_tl
+\tl_new:N \l__notesxref_id_tl
+\tl_new:N \l__notesxref_display_id_tl
+\tl_new:N \l__notesxref_kind_name_tl
+\tl_new:N \l__notesxref_text_tl
+\tl_new:N \l__notesxref_url_tl
+
+\msg_new:nnn { notes-common } { invalid-document-scope }
+  { Invalid~document~scope~'#1'. }
+\msg_new:nnn { notes-common } { invalid-reference }
+  { Invalid~reference~'#1'. }
+\msg_new:nnn { notes-common } { ambiguous-short-reference }
+  {
+    Short~reference~'#1'~is~ambiguous~because~more~than~one~document~was~used.
+    ~Qualify~it~with~a~document~name.
+  }
+\msg_new:nnn { notes-common } { unsupported-kind }
+  {
+    Unsupported~reference~kind~'#1'.
+    ~Use~def,~thm,~prop,~lem,~cor,~rem,~ex,~exc,~or~conv.
+  }
+
+\cs_new_protected:Npn \__notesxref_use_one:n #1
+  {
+    \tl_set:Nx \l__notesxref_reference_tl { \tl_trim_spaces:n {#1} }
+    \tl_if_blank:VF \l__notesxref_reference_tl
+      {
+        \seq_if_in:NVF
+          \g__notesxref_used_documents_seq \l__notesxref_reference_tl
+          {
+            \seq_gput_right:NV
+              \g__notesxref_used_documents_seq \l__notesxref_reference_tl
+          }
+      }
+  }
+
+\NewDocumentCommand{\xrefuse}{m}
+  { \clist_map_inline:nn {#1} { \__notesxref_use_one:n {##1} } }
+
+\cs_new_protected:Npn \__notesxref_set_document_scope:n #1
+  {
+    \regex_split:nnN { :: } {#1} \l__notesxref_parts_seq
+    \int_case:nnF { \seq_count:N \l__notesxref_parts_seq }
+      {
+        {1}
+          {
+            \tl_set:Nx \l__notesxref_server_tl { \notesServerRoot }
+            \tl_set:Nx \l__notesxref_project_tl { \notesProjectName }
+            \tl_set:Nx \l__notesxref_document_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {1} }
+          }
+        {2}
+          {
+            \tl_set:Nx \l__notesxref_server_tl { \notesServerRoot }
+            \tl_set:Nx \l__notesxref_project_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {1} }
+            \tl_set:Nx \l__notesxref_document_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {2} }
+          }
+        {3}
+          {
+            \tl_set:Nx \l__notesxref_server_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {1} }
+            \tl_set:Nx \l__notesxref_project_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {2} }
+            \tl_set:Nx \l__notesxref_document_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {3} }
+          }
+      }
+      {
+        \bool_set_false:N \l__notesxref_valid_bool
+        \msg_error:nnn { notes-common } { invalid-document-scope } {#1}
+      }
+  }
+
+\cs_new_protected:Npn \__notesxref_set_qualified_reference:n #1
+  {
+    \regex_split:nnN { :: } {#1} \l__notesxref_parts_seq
+    \int_case:nnF { \seq_count:N \l__notesxref_parts_seq }
+      {
+        {2}
+          {
+            \tl_set:Nx \l__notesxref_server_tl { \notesServerRoot }
+            \tl_set:Nx \l__notesxref_project_tl { \notesProjectName }
+            \tl_set:Nx \l__notesxref_document_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {1} }
+            \tl_set:Nx \l__notesxref_label_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {2} }
+          }
+        {3}
+          {
+            \tl_set:Nx \l__notesxref_server_tl { \notesServerRoot }
+            \tl_set:Nx \l__notesxref_project_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {1} }
+            \tl_set:Nx \l__notesxref_document_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {2} }
+            \tl_set:Nx \l__notesxref_label_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {3} }
+          }
+        {4}
+          {
+            \tl_set:Nx \l__notesxref_server_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {1} }
+            \tl_set:Nx \l__notesxref_project_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {2} }
+            \tl_set:Nx \l__notesxref_document_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {3} }
+            \tl_set:Nx \l__notesxref_label_tl
+              { \seq_item:Nn \l__notesxref_parts_seq {4} }
+          }
+      }
+      {
+        \bool_set_false:N \l__notesxref_valid_bool
+        \msg_error:nnn { notes-common } { invalid-reference } {#1}
+      }
+  }
+
+\cs_new_protected:Npn \__notesxref_set_short_reference:n #1
+  {
+    \tl_set:Nn \l__notesxref_label_tl {#1}
+    \int_case:nnF { \seq_count:N \g__notesxref_used_documents_seq }
+      {
+        {0}
+          {
+            \tl_set:Nx \l__notesxref_server_tl { \notesServerRoot }
+            \tl_set:Nx \l__notesxref_project_tl { \notesProjectName }
+            \tl_set:Nx \l__notesxref_document_tl { \jobname }
+          }
+        {1}
+          {
+            \tl_set:Nx \l__notesxref_reference_tl
+              { \seq_item:Nn \g__notesxref_used_documents_seq {1} }
+            \exp_args:NV
+              \__notesxref_set_document_scope:n \l__notesxref_reference_tl
+          }
+      }
+      {
+        \bool_set_false:N \l__notesxref_valid_bool
+        \msg_error:nnn
+          { notes-common } { ambiguous-short-reference } {#1}
+      }
+  }
+
+\cs_new_protected:Npn \__notesxref_parse_label:n #1
+  {
+    \regex_extract_once:nnNTF
+      { \A ([A-Za-z]+) : ([a-z0-9]+ (?: - [a-z0-9]+ )*) \Z }
+      {#1}
+      \l__notesxref_label_match_seq
+      {
+        \tl_set:Nx \l__notesxref_kind_tl
+          { \seq_item:Nn \l__notesxref_label_match_seq {2} }
+        \tl_set:Nx \l__notesxref_id_tl
+          { \seq_item:Nn \l__notesxref_label_match_seq {3} }
+      }
+      {
+        \bool_set_false:N \l__notesxref_valid_bool
+        \msg_error:nnn { notes-common } { invalid-reference } {#1}
+      }
+  }
+
+\cs_new_protected:Npn \__notesxref_set_kind:
+  {
+    \str_case:VnF \l__notesxref_kind_tl
+      {
+        {def}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { definition }
+          }
+        {thm}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { theorem }
+          }
+        {prop}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { proposition }
+          }
+        {lem}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { lemma }
+          }
+        {cor}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { corollary }
+          }
+        {rem}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { remark }
+          }
+        {ex}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { example }
+          }
+        {exc}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { exercise }
+          }
+        {conv}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { convention }
+          }
+      }
+      {
+        \bool_set_false:N \l__notesxref_valid_bool
+        \msg_error:nnx
+          { notes-common } { unsupported-kind } { \l__notesxref_kind_tl }
+      }
+  }
+
+\cs_new_protected:Npn \__notesxref_make_link:n #1
+  {
+    \bool_set_true:N \l__notesxref_valid_bool
+    \tl_set:Nx \l__notesxref_reference_tl { \tl_trim_spaces:n {#1} }
+
+    \regex_split:nnN { :: } {#1} \l__notesxref_parts_seq
+    \int_compare:nNnTF { \seq_count:N \l__notesxref_parts_seq } = {1}
+      {
+        \exp_args:NV
+          \__notesxref_set_short_reference:n \l__notesxref_reference_tl
+      }
+      {
+        \exp_args:NV
+          \__notesxref_set_qualified_reference:n \l__notesxref_reference_tl
+      }
+
+    \bool_if:NT \l__notesxref_valid_bool
+      {
+        \exp_args:NV \__notesxref_parse_label:n \l__notesxref_label_tl
+        \__notesxref_set_kind:
+      }
+
+    \bool_if:NTF \l__notesxref_valid_bool
+      {
+        \tl_set_eq:NN \l__notesxref_display_id_tl \l__notesxref_id_tl
+        \tl_replace_all:Nnn
+          \l__notesxref_display_id_tl { - } { \c_space_tl }
+        \tl_set:Nx \l__notesxref_text_tl
+          {
+            \l__notesxref_kind_name_tl \c_space_tl
+            \l__notesxref_display_id_tl
+          }
+        \tl_set:Nx \l__notesxref_url_tl
+          {
+            \l__notesxref_server_tl / \l__notesxref_project_tl /
+            \l__notesxref_document_tl .pdf \c_hash_str
+            notes.\l__notesxref_kind_tl.\l__notesxref_id_tl
+          }
+      }
+      { \tl_set:Nn \l__notesxref_text_tl { ?? } }
+  }
+
+\cs_new_protected:Npn \__notesxref_render_one:nnn #1#2#3
+  {
+    \tl_set:Nx \l__notesxref_reference_tl { \tl_trim_spaces:n {#3} }
+    \cs_if_exist:cTF { r@\l__notesxref_reference_tl }
+      {
+        \IfNoValueTF{#2}
+          {
+            \int_compare:nNnTF {#1} = {1}
+              {
+                \exp_args:NV
+                  \__notesxref_cref_star:n \l__notesxref_reference_tl
+              }
+              { \exp_args:NV \__notesxref_cref:n \l__notesxref_reference_tl }
+          }
+          {
+            \int_compare:nNnTF {#1} = {1}
+              {#2}
+              {
+                \exp_args:NV
+                  \__notesxref_hyperref:nn \l__notesxref_reference_tl {#2}
+              }
+          }
+      }
+      {
+        \__notesxref_make_link:n {#3}
+        \IfNoValueF{#2} { \tl_set:Nn \l__notesxref_text_tl {#2} }
+        \int_compare:nNnTF {#1} = {1}
+          { \tl_use:N \l__notesxref_text_tl }
+          {
+            \exp_args:NVV
+              \__notesxref_href:nn \l__notesxref_url_tl \l__notesxref_text_tl
+          }
+      }
+  }
+
+\cs_new_protected:Npn \__notesxref_cref:n #1 { \cref{#1} }
+\cs_new_protected:Npn \__notesxref_cref_star:n #1 { \cref*{#1} }
+\cs_new_protected:Npn \__notesxref_hyperref:nn #1#2 { \hyperref[#1]{#2} }
+\cs_new_protected:Npn \__notesxref_href:nn #1#2 { \href{#1}{#2} }
+
+\cs_new_protected:Npn \__notesxref_render_list:nnn #1#2#3
+  {
+    \bool_set_true:N \l__notesxref_first_bool
+    \clist_map_inline:nn {#3}
+      {
+        \bool_if:NTF \l__notesxref_first_bool
+          { \bool_set_false:N \l__notesxref_first_bool }
+          { ,\c_space_tl }
+        \__notesxref_render_one:nnn {#1} {#2} {##1}
+      }
+  }
+
+\NewDocumentCommand{\xref}{s o m}
+  {
+    \IfBooleanTF{#1}
+      { \__notesxref_render_list:nnn {1} {#2} {#3} }
+      { \__notesxref_render_list:nnn {0} {#2} {#3} }
+  }
+
+\ExplSyntaxOff

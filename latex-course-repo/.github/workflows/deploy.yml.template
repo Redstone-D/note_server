@@ -1,0 +1,57 @@
+name: Push Notes
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "latex_target/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-project-id
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NOTES_PROJECT: project-id
+  NOTES_SERVER_ROOT: https://notes.example.com
+
+jobs:
+  deploy:
+    name: Deploy project-id
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger notes server deployment
+        env:
+          NOTES_DEPLOY_KEY: ${{ secrets.NOTES_DEPLOY_KEY }}
+        run: |
+          if [ -z "$NOTES_DEPLOY_KEY" ]; then
+            echo "The NOTES_DEPLOY_KEY repository secret is not configured."
+            exit 1
+          fi
+
+          curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --connect-timeout 15 \
+            --max-time 180 \
+            --request POST \
+            --header "x-api-key: $NOTES_DEPLOY_KEY" \
+            "$NOTES_SERVER_ROOT/deploy/$NOTES_PROJECT"
+
+      - name: Verify deployed course
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --connect-timeout 15 \
+            --max-time 30 \
+            --output /dev/null \
+            "$NOTES_SERVER_ROOT/$NOTES_PROJECT/lec01.pdf"
