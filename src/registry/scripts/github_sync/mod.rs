@@ -1,22 +1,9 @@
+use crate::registry::scripts::{Rsync, SourcesRoot};
 use crate::registry::{Executor, Script};
 use hotaru::akari::Value;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::sync::LazyLock;
-
-const DEPLOYABLE_SUBDIR: &str = "latex_target";
-
-static SOURCES_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
-    let raw = std::env::var("NOTES_SOURCES_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("./sources"));
-    if raw.is_absolute() {
-        raw
-    } else {
-        std::env::current_dir().map(|c| c.join(&raw)).unwrap_or(raw)
-    }
-});
 
 pub struct GithubSync;
 
@@ -43,8 +30,11 @@ impl Script for GithubSync {
                 .ok_or_else(|| "github-sync: sandbox has no folder name".to_string())?
                 .to_string();
 
-            executor.ensure_dir(&SOURCES_ROOT).await?;
-            let checkout = SOURCES_ROOT.join(&folder);
+            let sources = SourcesRoot::global();
+            tokio::fs::create_dir_all(sources.root())
+                .await
+                .map_err(|e| format!("mkdir sources root: {e}"))?;
+            let checkout = sources.checkout_dir(&folder);
 
             if checkout.join(".git").exists() {
                 executor
@@ -53,23 +43,15 @@ impl Script for GithubSync {
             } else {
                 executor
                     .run_command(
-                        &SOURCES_ROOT,
+                        sources.root(),
                         "git",
                         &["clone", "--depth", "1", &repo, &folder],
                     )
                     .await?;
             }
 
-            let src = checkout.join(DEPLOYABLE_SUBDIR);
-            let src_arg = format!("{}/", src.display());
-            let dest = sandbox.display().to_string();
-            executor
-                .run_command(
-                    &sandbox,
-                    "rsync",
-                    &["-a", "--delete", &src_arg, &dest],
-                )
-                .await
+            let src = sources.deployable_dir(&folder);
+            Rsync::sync(executor, &src, &sandbox).await
         })
     }
 }

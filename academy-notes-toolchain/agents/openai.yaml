@@ -1,0 +1,4 @@
+interface:
+  display_name: "Academy Notes Toolchain"
+  short_description: "Build, link, and publish Academy Notes courses"
+  default_prompt: "Use $academy-notes-toolchain to set up and maintain this course across its four components."

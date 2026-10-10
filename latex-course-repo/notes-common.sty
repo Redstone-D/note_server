@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{notes-common}[2026/09/09 Shared notes style and direct PDF references]
+\ProvidesPackage{notes-common}[2026/09/28 Shared notes style and direct PDF references]
 
 \makeatletter
 \@ifundefined{notesServerRoot}{%
@@ -29,6 +29,10 @@
 \newtheorem{theorem}{Theorem}[section]
 \crefname{theorem}{theorem}{theorems}
 \Crefname{theorem}{Theorem}{Theorems}
+
+\newtheorem{axiom}{Axiom}[section]
+\crefname{axiom}{axiom}{axioms}
+\Crefname{axiom}{Axiom}{Axioms}
 
 \newtheorem{proposition}{Proposition}[section]
 \crefname{proposition}{proposition}{propositions}
@@ -83,6 +87,8 @@
 \cs_new_eq:NN \__notesenv_definition_end: \enddefinition
 \cs_new_eq:NN \__notesenv_theorem_begin: \theorem
 \cs_new_eq:NN \__notesenv_theorem_end: \endtheorem
+\cs_new_eq:NN \__notesenv_axiom_begin: \axiom
+\cs_new_eq:NN \__notesenv_axiom_end: \endaxiom
 \cs_new_eq:NN \__notesenv_proposition_begin: \proposition
 \cs_new_eq:NN \__notesenv_proposition_end: \endproposition
 \cs_new_eq:NN \__notesenv_lemma_begin: \lemma
@@ -172,6 +178,15 @@
   }
   { \__notesenv_theorem_end: }
 
+\RenewDocumentEnvironment{axiom}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_axiom_begin: }
+      { \__notesenv_axiom_begin: [#1] }
+    \__notesenv_add_label:nnn {axm} {#1} {#2}
+  }
+  { \__notesenv_axiom_end: }
+
 \RenewDocumentEnvironment{proposition}{o g}
   {
     \IfNoValueTF{#1}
@@ -204,7 +219,7 @@
     \IfNoValueTF{#1}
       { \__notesenv_example_begin: }
       { \__notesenv_example_begin: [#1] }
-    \__notesenv_add_label:nnn {ex} {#1} {#2}
+    \__notesenv_add_label:nnn {eg} {#1} {#2}
   }
   { \__notesenv_example_end: }
 
@@ -213,7 +228,7 @@
     \IfNoValueTF{#1}
       { \__notesenv_exercise_begin: }
       { \__notesenv_exercise_begin: [#1] }
-    \__notesenv_add_label:nnn {exc} {#1} {#2}
+    \__notesenv_add_label:nnn {ex} {#1} {#2}
   }
   { \__notesenv_exercise_end: }
 
@@ -250,6 +265,8 @@
 \cs_new_eq:NN \enddfn \enddefinition
 \cs_new_eq:NN \thm \theorem
 \cs_new_eq:NN \endthm \endtheorem
+\cs_new_eq:NN \axm \axiom
+\cs_new_eq:NN \endaxm \endaxiom
 \cs_new_eq:NN \prop \proposition
 \cs_new_eq:NN \endprop \endproposition
 \cs_new_eq:NN \lem \lemma
@@ -258,10 +275,10 @@
 \cs_new_eq:NN \endcor \endcorollary
 \cs_new_eq:NN \rem \remark
 \cs_new_eq:NN \endrem \endremark
-\cs_new_eq:NN \ex \example
-\cs_new_eq:NN \endex \endexample
-\cs_new_eq:NN \exc \exercise
-\cs_new_eq:NN \endexc \endexercise
+\cs_new_eq:NN \eg \example
+\cs_new_eq:NN \endeg \endexample
+\cs_new_eq:NN \ex \exercise
+\cs_new_eq:NN \endex \endexercise
 \cs_new_eq:NN \conv \convention
 \cs_new_eq:NN \endconv \endconvention
 \ExplSyntaxOff
@@ -299,7 +316,7 @@
 \msg_new:nnn { notes-common } { unsupported-kind }
   {
     Unsupported~reference~kind~'#1'.
-    ~Use~def,~thm,~prop,~lem,~cor,~rem,~ex,~exc,~or~conv.
+    ~Use~def,~thm,~axm,~prop,~lem,~cor,~rem,~eg,~ex,~or~conv.
   }
 
 \cs_new_protected:Npn \__notesxref_use_one:n #1
@@ -453,6 +470,10 @@
           {
             \tl_set:Nn \l__notesxref_kind_name_tl { theorem }
           }
+        {axm}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { axiom }
+          }
         {prop}
           {
             \tl_set:Nn \l__notesxref_kind_name_tl { proposition }
@@ -469,11 +490,11 @@
           {
             \tl_set:Nn \l__notesxref_kind_name_tl { remark }
           }
-        {ex}
+        {eg}
           {
             \tl_set:Nn \l__notesxref_kind_name_tl { example }
           }
-        {exc}
+        {ex}
           {
             \tl_set:Nn \l__notesxref_kind_name_tl { exercise }
           }
@@ -524,7 +545,7 @@
         \tl_set:Nx \l__notesxref_url_tl
           {
             \l__notesxref_server_tl / \l__notesxref_project_tl /
-            \l__notesxref_document_tl .pdf \c_hash_str
+            \l__notesxref_document_tl .pdf \c_hash_str nameddest=
             notes.\l__notesxref_kind_tl.\l__notesxref_id_tl
           }
       }
@@ -533,7 +554,8 @@
 
 \cs_new_protected:Npn \__notesxref_render_one:nnn #1#2#3
   {
-    \tl_set:Nx \l__notesxref_reference_tl { \tl_trim_spaces:n {#3} }
+    \tl_set:Nx \l__notesxref_reference_tl {#3}
+    \tl_trim_spaces:N \l__notesxref_reference_tl
     \cs_if_exist:cTF { r@\l__notesxref_reference_tl }
       {
         \IfNoValueTF{#2}
@@ -555,7 +577,8 @@
           }
       }
       {
-        \__notesxref_make_link:n {#3}
+        \exp_args:NV
+          \__notesxref_make_link:n \l__notesxref_reference_tl
         \IfNoValueF{#2} { \tl_set:Nn \l__notesxref_text_tl {#2} }
         \int_compare:nNnTF {#1} = {1}
           { \tl_use:N \l__notesxref_text_tl }
@@ -591,3 +614,20 @@
   }
 
 \ExplSyntaxOff
+
+% Authoring markers for work-in-progress notes. Grep-friendly names.
+% \todo              -- inline marker, blue bold "TODO"
+% \todo{text}        -- blue bold "TODO:" + non-bold body
+% \missingprereq{t}  -- purple inline body for prereqs owed from other subjects
+\definecolor{notestodo}{RGB}{30,90,200}
+\definecolor{notesmissingprereq}{RGB}{140,40,180}
+
+\NewDocumentCommand{\todo}{o}{%
+  \IfValueTF{#1}%
+    {\textcolor{notestodo}{\textbf{TODO:}~#1}}%
+    {\textcolor{notestodo}{\textbf{TODO}}}%
+}
+
+\NewDocumentCommand{\missingprereq}{m}{%
+  \textcolor{notesmissingprereq}{#1}%
+}

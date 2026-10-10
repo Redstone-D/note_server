@@ -40,12 +40,13 @@ Proposition 2.1.
 |---|---|---|
 | `dfn` | `definition` | `def` |
 | `thm` | `theorem` | `thm` |
+| `axm` | `axiom` | `axm` |
 | `prop` | `proposition` | `prop` |
 | `lem` | `lemma` | `lem` |
 | `cor` | `corollary` | `cor` |
 | `rem` | `remark` | `rem` |
-| `ex` | `example` | `ex` |
-| `exc` | `exercise` | `exc` |
+| `eg` | `example` | `eg` |
+| `ex` | `exercise` | `ex` |
 | `conv` | `convention` | `conv` |
 
 Give an item an optional printed title and a stable semantic ID:
@@ -110,15 +111,69 @@ cross-PDF reference displays its semantic name because it does not fetch
 remote metadata. The link targets the stable semantic destination embedded in
 the other PDF.
 
+## Linked notation and operators
+
+Put course-specific symbols in a separate package such as
+`subject-notations.sty`, loaded by `notes-project.sty` after `notes-common`.
+Use `\xref` as the clickable operator head and leave its arguments outside the
+link. This avoids nested links when an argument contains another linked symbol:
+
+```tex
+% subject-notations.sty
+\providecommand*{\commutatorRef}{subject-project::ch03::def:commutator}
+\newcommand{\comm}[2]{%
+  \ensuremath{%
+    \xref[\operatorname{comm}]{\commutatorRef}\!\left(#1,\, #2\right)%
+  }%
+}
+```
+
+The default renders `\comm{A}{B}` as
+\(\operatorname{comm}(A,B)\), with only `comm` clickable. To reuse the
+notation when the definition lives elsewhere, override the target before
+loading the notation package:
+
+```tex
+% notes-project.sty
+\RequirePackage{notes-common}
+\newcommand*{\commutatorRef}{other-project::ch03::def:commutator}
+\RequirePackage{subject-notations}
+```
+
+Use the ordinary `\xref` scope syntax in target macros. Prefer a new semantic
+command such as `\comm` over redefining a standard LaTeX operator. If an
+existing command must be replaced, preserve its argument signature and use an
+explicit renewal command so collisions fail visibly.
+
+Subject notation packages are optional. A dependent course may vendor and load
+another subject's package; the project-qualified default keeps links pointing
+to the owning subject. Do not use a relative path into a sibling repository,
+because that path will not be portable to another checkout or build machine.
+
+Existing operators may be intentionally replaced inside a subject package when
+their mathematical behavior is preserved. For example, Real Analysis can keep
+the normal subscript behavior of `\sup` while linking its operator head:
+
+```tex
+\providecommand*{\supremumRef}{real-analysis::lec01::def:supremum}
+\let\raPlainSup\sup
+\renewcommand*{\sup}{%
+  \mathop{\xref[\mathrm{sup}]{\supremumRef}}\nolimits
+}
+```
+
+Expose the saved command, here `\raPlainSup`, for exceptional contexts that
+need the original unlinked operator.
+
 ## Exercises and source citations
 
 For publicly hosted tutorial work, cite the source and write the original
 answer without reproducing a full copyrighted question:
 
 ```tex
-\begin{exc}{author-book-exercise-id}
+\begin{ex}{author-book-exercise-id}
   \emph{Source:} Author, \emph{Book Title}, edition, Exercise 1.2.3.
-\end{exc}
+\end{ex}
 
 % Write your answer below.
 ```

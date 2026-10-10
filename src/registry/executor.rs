@@ -45,14 +45,6 @@ impl Executor {
         Self::interpret(result).map_err(|e| format!("{cmdline}: {e}"))
     }
 
-    pub async fn ensure_dir(&self, path: &Path) -> Result<(), String> {
-        let path = path.to_path_buf();
-        tokio::task::spawn_blocking(move || std::fs::create_dir_all(&path))
-            .await
-            .map_err(|e| format!("mkdir join: {e}"))?
-            .map_err(|e| format!("mkdir: {e}"))
-    }
-
     fn interpret(
         result: Result<std::io::Result<std::process::ExitStatus>, tokio::task::JoinError>,
     ) -> Result<(), String> {

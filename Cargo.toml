@@ -7,5 +7,5 @@ edition = "2024"
 hotaru = { version = "=0.8.6", default-features = false, features = [
     "trans", "auto-reg", "http", "tokio", "full_regex", "template", "lib"
 ] }
-tokio = { version = "1", features = ["rt"] }
+tokio = { version = "1", features = ["rt", "fs"] }
 akari = { version = "=0.2.8", default-features = false }

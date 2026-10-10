@@ -51,7 +51,9 @@ impl Registry {
         event: Value,
     ) -> Result<(), String> {
         let sandbox = self.sandbox_for(project)?;
-        self.executor.ensure_dir(&sandbox).await?;
+        tokio::fs::create_dir_all(&sandbox)
+            .await
+            .map_err(|e| format!("mkdir sandbox: {e}"))?;
         match self.scripts.get(id) {
             Some(s) => s.run(&self.executor, sandbox, config, event).await,
             None => Err(format!("unknown script: {id}")),
