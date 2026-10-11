@@ -149,21 +149,47 @@ parts, not two concepts.
 
 ## Leave a redirect when a block moves
 
-When a concept moves to another document, replace the original site with
-`\redirect` — do not delete the block. See [core.md](core.md) and
+When a concept moves to a **different document**, replace the original site
+with `\redirect` — do not delete the block. See [core.md](core.md) and
 [blocks.md](blocks.md) for the mechanism.
 
-Deleting the block silently breaks every `\xref` that still targets the old
-location and shifts the counter so every subsequent number changes.
-`\redirect` fixes both: the hypertarget and label survive at the old
-location, the counter still advances at the old slot, and a reader who
-follows a stale link lands on a visible breadcrumb pointing to the current
-definition.
+Scope: `\redirect` is only for cross-document moves. For a block that just
+reorders within the same document (e.g. moving a definition from §2 to §5
+for better narrative flow), the local label stays valid and no breadcrumb
+is needed — `\cref` and `\label` already resolve.
 
-Convention: `\redirect` is a tombstone, not a permanent fixture. Keep it in
-place for at least one full edit cycle after the move, then remove it if no
-external document still cites the old location. Grep for `\\redirect` to
-list the current tombstones in a document.
+Deleting the block when it moves across documents silently breaks every
+`\xref` that still targets the old location and shifts the counter so every
+subsequent number changes. `\redirect` fixes both: the hypertarget and
+label survive at the old location, the counter still advances at the old
+slot, and a reader who follows a stale link lands on a visible breadcrumb
+pointing to the current definition.
+
+### When to remove a redirect
+
+Keep `\redirect` indefinitely by default — the breadcrumb has near-zero
+cost. Removing one requires confirming **both**:
+
+1. **No remaining inbound citations.** Because the toolchain's cross
+   references form a cross-subject web, the audit has to span every course
+   that could cite this block, not just the one you're editing. Grep for
+   `\xref{...::<old-kind>:<old-id>}` across every dependent course
+   checkout you have access to. If the block was moved from a widely-cited
+   location, keep the redirect — you cannot grep courses you don't have.
+2. **The redirect carries no additional information worth preserving.**
+   If the redirect's `[Original Title]` or clickable breadcrumb helps a
+   reader orient themselves (for example, after a substantial rename),
+   that reader value is reason enough to keep it.
+
+If either condition is uncertain, keep the redirect. Grep for `\\redirect`
+to list the current tombstones in a document.
+
+### Optional title
+
+`\redirect[Original Title]{old-kind}{old-id}{new-xref-target}` — the title
+in brackets is optional. Include it when the block was renamed during the
+move so readers can tell what moved. Omit it when the name is unchanged
+(the clickable new-location breadcrumb carries enough context on its own).
 
 ## Authoring markers
 
