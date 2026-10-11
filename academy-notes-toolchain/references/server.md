@@ -1,9 +1,13 @@
 # Component 4: Server
 
+Terms used on this page — **project**, **notes server**, **document** — are
+defined in [core.md](core.md).
+
 ## Ownership
 
-Keep server registration beneath `config/<project>/` in the notes-server
-repository. A GitHub-backed project requires both files:
+Project registration lives beneath `config/<project>/` in the notes-server
+repository and nowhere else. The course repository never ships server
+configuration. A GitHub-backed project requires both files:
 
 ```text
 config/<project>/
@@ -32,10 +36,52 @@ Use schema version `1`:
 }
 ```
 
-Keep these files out of the course template. Restart the server after adding or
-removing a project directory or editing its `config.json`, because project
-configuration is loaded once. Central manifest titles are read per request, so
-a title-only change in `manifest.json` does not require a restart.
+Restart the server after adding or removing a project directory or editing
+its `config.json`, because project configuration is loaded once. Central
+manifest titles are read per request, so a title-only change in
+`manifest.json` does not require a restart.
+
+## Register a project
+
+Steps to add a new project to a running notes server:
+
+1. Create `config/<project-id>/` on the notes server. The directory name is
+   the project ID; it must match the course's `\notesProjectName` and the
+   `project` field inside both JSON files.
+2. Drop in `config.json` and `manifest.json` using the shapes above. For
+   `github-sync`, set `script_config.repo` to the course's git clone URL.
+3. Restart the notes server so the new `config.json` is picked up.
+4. Trigger the first deploy with
+   `POST /deploy/<project-id>` carrying the `x-api-key` header. The server
+   clones the repository, materializes `$NOTES_SOURCES_ROOT/<project-id>/`,
+   and synchronizes `latex_target/` into `$NOTES_ROOT/<project-id>/`.
+5. On the course side, set `\notesProjectName` to the same project ID and
+   `\notesServerRoot` to this notes server's public origin in
+   `notes-project.sty`. See [project-config.md](project-config.md).
+6. On the course repository CI, set the `NOTES_DEPLOY_KEY` secret to match
+   the server's environment variable so push-to-deploy works. For the
+   course-side workflow file, secret binding, and trigger shape, see
+   [template.md](template.md) under "Authoring and CI rules" — the
+   server-side contract is simply the API key match plus the
+   `POST /deploy/<project>` endpoint documented below.
+
+## Identity contract
+
+Keep the project ID equal across every location that references the project:
+
+| Location | Value |
+|---|---|
+| server `config/<project>/` directory | directory name |
+| server `config/<project>/config.json` | `project` |
+| server `config/<project>/manifest.json` | `project` |
+| server `$NOTES_SOURCES_ROOT/<project>/` checkout | folder name (clone target) |
+| server `$NOTES_ROOT/<project>/` sandbox | folder name (synchronization destination) |
+| course `notes-project.sty` | `\notesProjectName` |
+| public URL | first path segment after the host |
+| course CI workflow | project environment value and deploy path |
+
+Mismatches silently break deploys or render under the wrong path. Audit
+these together whenever a project is added, renamed, or migrated.
 
 ## Runtime paths and synchronization
 

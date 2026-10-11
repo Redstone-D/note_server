@@ -34,6 +34,10 @@
 \crefname{axiom}{axiom}{axioms}
 \Crefname{axiom}{Axiom}{Axioms}
 
+\newtheorem{hypothesis}{Hypothesis}[section]
+\crefname{hypothesis}{hypothesis}{hypotheses}
+\Crefname{hypothesis}{Hypothesis}{Hypotheses}
+
 \newtheorem{proposition}{Proposition}[section]
 \crefname{proposition}{proposition}{propositions}
 \Crefname{proposition}{Proposition}{Propositions}
@@ -89,6 +93,8 @@
 \cs_new_eq:NN \__notesenv_theorem_end: \endtheorem
 \cs_new_eq:NN \__notesenv_axiom_begin: \axiom
 \cs_new_eq:NN \__notesenv_axiom_end: \endaxiom
+\cs_new_eq:NN \__notesenv_hypothesis_begin: \hypothesis
+\cs_new_eq:NN \__notesenv_hypothesis_end: \endhypothesis
 \cs_new_eq:NN \__notesenv_proposition_begin: \proposition
 \cs_new_eq:NN \__notesenv_proposition_end: \endproposition
 \cs_new_eq:NN \__notesenv_lemma_begin: \lemma
@@ -187,6 +193,15 @@
   }
   { \__notesenv_axiom_end: }
 
+\RenewDocumentEnvironment{hypothesis}{o g}
+  {
+    \IfNoValueTF{#1}
+      { \__notesenv_hypothesis_begin: }
+      { \__notesenv_hypothesis_begin: [#1] }
+    \__notesenv_add_label:nnn {hypo} {#1} {#2}
+  }
+  { \__notesenv_hypothesis_end: }
+
 \RenewDocumentEnvironment{proposition}{o g}
   {
     \IfNoValueTF{#1}
@@ -267,6 +282,8 @@
 \cs_new_eq:NN \endthm \endtheorem
 \cs_new_eq:NN \axm \axiom
 \cs_new_eq:NN \endaxm \endaxiom
+\cs_new_eq:NN \hypo \hypothesis
+\cs_new_eq:NN \endhypo \endhypothesis
 \cs_new_eq:NN \prop \proposition
 \cs_new_eq:NN \endprop \endproposition
 \cs_new_eq:NN \lem \lemma
@@ -316,7 +333,7 @@
 \msg_new:nnn { notes-common } { unsupported-kind }
   {
     Unsupported~reference~kind~'#1'.
-    ~Use~def,~thm,~axm,~prop,~lem,~cor,~rem,~eg,~ex,~or~conv.
+    ~Use~def,~thm,~axm,~hypo,~prop,~lem,~cor,~rem,~eg,~ex,~or~conv.
   }
 
 \cs_new_protected:Npn \__notesxref_use_one:n #1
@@ -473,6 +490,10 @@
         {axm}
           {
             \tl_set:Nn \l__notesxref_kind_name_tl { axiom }
+          }
+        {hypo}
+          {
+            \tl_set:Nn \l__notesxref_kind_name_tl { hypothesis }
           }
         {prop}
           {
@@ -631,3 +652,78 @@
 \NewDocumentCommand{\missingprereq}{m}{%
   \textcolor{notesmissingprereq}{#1}%
 }
+
+% Cross-reference redirect: a tombstone that replaces a moved linkable block.
+% Occupies the original hypertarget + label so existing xrefs still resolve,
+% steps the original kind's counter so subsequent numbering stays stable,
+% and renders a visible "Redirect" marker (italic, with "Redirect" underlined)
+% containing a clickable xref to the new location.
+%
+%   \redirect[Original Title]{old-kind}{old-id}{new-xref-target}
+%
+% old-kind must be one of: def, thm, axm, hypo, prop, lem, cor, rem, eg, ex,
+% conv. Proofs are not linkable, so they cannot be redirected.
+
+\ExplSyntaxOn
+
+\msg_new:nnn { notes-common } { redirect-unsupported-kind }
+  {
+    Unsupported~redirect~kind~'#1'.
+    ~Use~def,~thm,~axm,~hypo,~prop,~lem,~cor,~rem,~eg,~ex,~or~conv.
+  }
+
+\cs_new_protected:Npn \__notesredirect_bump:n #1
+  {
+    \str_case:nnF {#1}
+      {
+        {def}  { \refstepcounter { definition } }
+        {thm}  { \refstepcounter { theorem } }
+        {axm}  { \refstepcounter { axiom } }
+        {hypo} { \refstepcounter { hypothesis } }
+        {prop} { \refstepcounter { proposition } }
+        {lem}  { \refstepcounter { lemma } }
+        {cor}  { \refstepcounter { corollary } }
+        {rem}  { \refstepcounter { remark } }
+        {eg}   { \refstepcounter { example } }
+        {ex}   { \refstepcounter { exercise } }
+        {conv} { \refstepcounter { convention } }
+      }
+      {
+        \msg_error:nnx { notes-common } { redirect-unsupported-kind } {#1}
+      }
+  }
+
+\cs_new_protected:Npn \__notesredirect_render:nnnn #1#2#3#4
+  {
+    % #1 title (may be empty)  #2 old-kind  #3 old-id  #4 new xref target
+    \par \medskip
+    \group_begin:
+      \itshape
+      \noindent
+      \underline { Redirect }
+      \tl_if_blank:nF {#1} { ~ (#1) }
+      \hypertarget { notes.#2.#3 } { }
+      \label { #2 : #3 }
+      \bool_if:NT \g__notesenv_show_ids_bool
+        {
+          \nobreak \space
+          \group_begin:
+            \normalfont \scriptsize \color { gray }
+            \texttt { [ #2 : #3 ] }
+          \group_end:
+        }
+      \par \noindent
+      Moved~to~ \xref {#4} .
+    \group_end:
+    \par \medskip
+  }
+
+\NewDocumentCommand { \redirect } { o m m m }
+  {
+    \__notesredirect_bump:n {#2}
+    \IfValueTF {#1}
+      { \__notesredirect_render:nnnn {#1} {#2} {#3} {#4} }
+      { \__notesredirect_render:nnnn { } {#2} {#3} {#4} }
+  }
+
+\ExplSyntaxOff

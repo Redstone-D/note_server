@@ -9,151 +9,107 @@ only after comparing local copies and preserving intentional changes.
 Keep course titles, course codes, project IDs, repository URLs, and server
 registration out of this file.
 
-## Numbered environments
+## Concepts
 
-Each environment has an independent counter beneath the current section.
+The Core introduces nine concepts that the rest of the toolchain and every
+course document build on. Operational catalogues for each concept live in
+sibling reference files; this page is a glossary.
 
-| Short | Full | Semantic kind |
-|---|---|---|
-| `dfn` | `definition` | `def` |
-| `thm` | `theorem` | `thm` |
-| `axm` | `axiom` | `axm` |
-| `prop` | `proposition` | `prop` |
-| `lem` | `lemma` | `lem` |
-| `cor` | `corollary` | `cor` |
-| `rem` | `remark` | `rem` |
-| `eg` | `example` | `eg` |
-| `ex` | `exercise` | `ex` |
-| `conv` | `convention` | `conv` |
+### Linkable block
 
-Use `[Printed Title]{semantic-id}`:
+A container that renders a labeled statement ("Theorem 2.1", "Definition
+3.2"), bumps a section-scoped counter, and acts as a target for cross
+references. The eleven linkable kinds are `dfn`, `thm`, `axm`, `hypo`,
+`prop`, `lem`, `cor`, `rem`, `eg`, `ex`, and `conv`. A twelfth block,
+`proof`, exists for proofs but is not a linkable block — it has no counter
+and no semantic ID. Full catalogue in [blocks.md](blocks.md).
 
-```tex
-\begin{dfn}[Sample Mean]{sample-mean}
-  Definition text.
-\end{dfn}
-```
+### Semantic kind
 
-Require explicit IDs to use lowercase kebab-case. When the ID is omitted but a
-plain title exists, derive the ID from the title. Leave an untitled environment
-without an explicit ID unlabeled. Use `\notesShowIDs` and `\notesHideIDs` to
-control the printed gray identifier.
+The short tag classifying a linkable block's role: `def`, `thm`, `axm`,
+`hypo`, `prop`, `lem`, `cor`, `rem`, `eg`, `ex`, `conv`. The kind appears
+in cross-reference paths (`\xref{...::thm:example}`) and in the printed
+gray marker.
 
-Keep an untitled proof headed `Proof.` and a titled proof headed `Pf. Title.`.
-Do not assign semantic IDs to proofs.
+### Semantic ID
 
-Prefer the narrative order **definition → theorem → proof** when a result
-follows directly from a new concept. Introduce the concept (`dfn`) first, state
-the claim (`thm`/`lem`/`prop`/`cor`) second, then prove it. Keep remarks,
-examples, and conventions near the theorem they illuminate rather than
-scattered across the document. The reader should encounter every term the next
-environment uses before meeting that environment.
+The stable, lowercase-kebab-case identifier attached to a linkable block.
+Survives section renumbering, reordering, and insertion. Powers the
+`\label` for the local reference and the `\hypertarget` named destination
+for direct PDF jumps. Full form of the printed marker is `kind:id`.
 
-## References
+### Document
 
-Use these forms:
+A single `.tex` source and the `.pdf` it produces, published under a
+project. Identified by its filename stem (e.g., `lec01`, `tut03`). Appears
+as the third segment of a cross reference's scope path.
 
-| Scope | Syntax |
-|---|---|
-| Current PDF | `\xref{def:sample-mean}` |
-| Another PDF, current project | `\xref{lec01::def:sample-mean}` |
-| Another project, current server | `\xref{real-analysis::lec01::def:field}` |
-| Explicit server and project | `\xref{https://other.example::project::lec01::def:item}` |
+### Project
 
-Use `\xref[clickable words]{...}` for custom link text and `\xref*{...}` for
-unlinked text. Use `\xrefuse{lec01}` to make short references resolve to one
-declared document; require qualification if more than one document is declared.
+A course-sized collection of documents on a notes server. Identified by a
+project ID — the value of `\notesProjectName` on the LaTeX side and the
+server-side `config/<project>/` directory name on the publication side.
+Appears as the second segment of a cross reference's scope path and as the
+first URL segment after the host.
 
-Resolve local labels with `cleveref`. Resolve non-local references directly to:
+### Notes server
 
-```text
-<server>/<project>/<document>.pdf#nameddest=notes.<kind>.<id>
-```
+The publication service that hosts projects. Identified by a base URL — the
+value of `\notesServerRoot`. Appears as the first segment of a cross
+reference's scope path when the reference is explicitly cross-server. See
+[Component 4: Server](server.md) for the implementation side.
 
-Do not introduce Python, a JSON reference index, or remote AUX files for this
-reference path.
+### Cross reference
 
-## Linked notation
+A citation from one place to a linkable block. Scoped within a PDF, across
+PDFs in one project, across projects, or across servers. One macro covers
+all scopes: `\xref`. Full catalogue in
+[cross-references.md](cross-references.md).
 
-Before introducing a new notation macro, check the course's loaded notation
-packages (`real-analysis-notations.sty`, `qm-notations.sty`, and any others
-required by `notes-project.sty`) for an existing command that already covers
-the symbol or operator. Reuse the existing macro so cross-document links keep
-resolving to a single canonical definition. Define a new macro only when no
-existing one applies, and prefer adding it to the owning subject's notation
-package rather than inlining a one-off in the current document.
+### Cross reference redirect
 
-Keep subject-specific symbols out of `notes-common.sty`. Define them in a
-course package such as `qm-notations.sty`, and use `\xref` inside the notation
-macro when the symbol should link to its definition:
+A tombstone that replaces a linkable block when the concept it defined has
+been moved. Occupies the original block's semantic kind and semantic ID so
+every existing cross reference pointing at that destination still resolves.
+Steps the original kind's counter so numbering of subsequent blocks stays
+stable. Renders a visually distinct "Redirect" marker whose body is a
+clickable cross reference to the current location. See
+[blocks.md](blocks.md) for the macro.
 
-```tex
-\providecommand*{\commutatorRef}{quantum-mechanics::ch03::def:commutator}
-\newcommand{\comm}[2]{%
-  \ensuremath{%
-    \xref[\operatorname{comm}]{\commutatorRef}\!\left(#1,\, #2\right)%
-  }%
-}
-```
+### Notation package
 
-Expose the destination as a `\providecommand` hook so another project can set
-the target before loading the notation package. Accept any normal `\xref`
-scope in that hook. The Core expands the mandatory `\xref` argument before
-parsing it, so a target macro behaves the same as a literal reference.
+A per-subject `.sty` file loaded from `notes-project.sty` — for example
+`real-analysis-notations.sty`, `qm-notations.sty`. Defines macros for
+symbols and operators, each macro potentially carrying an internal cross
+reference to its defining linkable block. The Core itself is subject-neutral;
+notation packages are vendored per course. Authoring the package itself:
+[notation-packages.md](notation-packages.md). Using the macros in a
+document: [authoring.md](authoring.md).
 
-Use a project-qualified default, such as
-`quantum-mechanics::ch03::def:commutator`, when dependent subjects may reuse
-the package. This keeps imported notation linked to the owning subject.
+### Authoring marker
 
-Link only the stable symbol or operator head, not the full expression. Keeping
-arguments outside the link avoids nested hyperlinks when an argument contains
-another linked symbol. Prefer new semantic commands over replacing standard
-LaTeX operators. When replacement is intentional, preserve the existing
-signature and use an explicit renewal command so a missing or conflicting
-definition fails visibly.
+An inline work-in-progress annotation that renders colored and is
+grep-friendly: `\todo`, `\todo{text}`, `\missingprereq{text}`. Not counted,
+not a cross-reference target. Suppressable for a release build. Catalogue in
+[authoring.md](authoring.md).
 
-Keep subject modules optional. A dependent repository may vendor or otherwise
-track another subject's `.sty` module and load it after `notes-common`. Do not
-depend on relative paths into sibling checkouts; they are not portable across
-machines or build environments.
+## How the concepts fit together
 
-## Authoring markers
-
-Use these inline markers while a document is a work in progress. They render in
-colored text so unfinished spots stand out at a glance; grep for the macro name
-to list every outstanding item.
-
-| Macro | Render | Meaning |
-|---|---|---|
-| `\todo` | blue bold "TODO" | Spot to revisit within these notes. |
-| `\todo{text}` | blue bold "TODO:" then non-bold body | Dated or described TODO within these notes. |
-| `\missingprereq{text}` | purple body (no bold) | Material owed from another subject but not yet available. |
-
-Example:
-
-```tex
-We will prove this via \missingprereq{Hahn--Banach, functional-analysis::lec05}.
-\todo{tighten the bound before week 6}
-```
-
-Both macros live in `notes-common.sty` so every course that loads the Core
-inherits them. Use them freely during drafting. Suppress them for a release
-build with:
-
-```tex
-\renewcommand{\todo}[1][]{}
-\renewcommand{\missingprereq}[1]{}
-```
-
-Keep `\todo` for work the current author owes themselves, and
-`\missingprereq` for cross-subject blockers; the color split lets a reader
-tell at a glance which items will unblock from inside this document and which
-require another repository to move first.
+A **document** holds **linkable blocks**. Each block declares a **semantic
+kind** and an optional **semantic ID**; together they produce a stable local
+label and a named PDF destination. A **project** is a set of documents, a
+**notes server** is a set of projects, and a **cross reference** points at
+one named destination using as many of those three scope segments as it
+needs plus the `kind:id` pair. A **notation package** exports macros that
+may internally wrap a cross reference, so that writing a symbol in a
+document becomes a clickable path to the block where the symbol is defined.
+**Authoring markers** sit outside this content graph — they are annotations
+on the drafting process, not reference targets.
 
 ## Verification
 
-Compile a small document containing every changed environment, reference, or
-linked notation macro. Check its `.aux` labels and PDF link annotations, and
-confirm clickable local and external destinations.
-When changing the Core contract, synchronize the canonical template and every
-course repository requested by the user, then compare the resulting Core files.
+When changing a concept listed on this page, synchronize the canonical
+`notes-common.sty`, update the catalogue page that owns the concept's
+operational detail, and compile a document that exercises the change.
+Confirm every clickable local and external destination resolves. Follow the
+component-specific verification note in the catalogue page that was touched.

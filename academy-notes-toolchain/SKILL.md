@@ -13,8 +13,16 @@ notes server. Treat the toolchain as four components with explicit ownership.
 1. Inspect repository instructions, working-tree status, and the files named by
    the user before editing.
 2. Read the reference for every affected component:
-   - **Core** — read [references/core.md](references/core.md) for shared LaTeX
-     environments, semantic IDs, proofs, and `\xref`.
+   - **Core** — start with [references/core.md](references/core.md) for the
+     concept vocabulary (linkable block, semantic kind, semantic ID, cross
+     reference, notation package, authoring marker). Then open the catalogue
+     for the concept actually touched:
+     - [references/blocks.md](references/blocks.md) — the linkable-block
+       catalogue, syntax, proof convention, picking between kinds.
+     - [references/cross-references.md](references/cross-references.md) —
+       `\xref` scopes, variants, resolver.
+     - [references/notation-packages.md](references/notation-packages.md) —
+       authoring per-subject notation packages and linking their macros.
    - **Project Config** — read
      [references/project-config.md](references/project-config.md) for per-course
      LaTeX identity and consistency rules.
@@ -22,9 +30,13 @@ notes server. Treat the toolchain as four components with explicit ownership.
      repository scaffolding, builds, manifests, and course-side CI.
    - **Server** — read [references/server.md](references/server.md) for project
      registration, synchronization, routes, and deployment.
-3. Make the smallest change in the owning component. Update dependent
+3. If the task touches `.tex` files or notation, also read
+   [references/authoring.md](references/authoring.md) for subject-neutral
+   writing conventions (macro-over-raw-symbol, semantic IDs, narrative order,
+   one concept per definition, direct derivation over black-box invocation).
+4. Make the smallest change in the owning component. Update dependent
    components only when their contract changes.
-4. Verify in proportion to the change and report generated artifacts.
+5. Verify in proportion to the change and report generated artifacts.
 
 ## Preserve component boundaries
 

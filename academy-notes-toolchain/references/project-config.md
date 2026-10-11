@@ -1,8 +1,17 @@
 # Component 2: Project Config
 
+Terms used on this page — **project**, **notes server**, **notation
+package** — are defined in [core.md](core.md).
+
+This component is strictly the LaTeX side of the course repository. For the
+server-side project registration (`config/<project>/` on the notes server,
+first-deploy workflow, identity contract across every location that holds
+the project ID) see [Component 4: Server](server.md).
+
 ## Ownership
 
-Use `notes-project.sty` for the two values required by the Core:
+Use `notes-project.sty` for the two values the Core requires in order to
+identify this project and the notes server that will publish it:
 
 ```tex
 \NeedsTeXFormat{LaTeX2e}
@@ -14,11 +23,18 @@ Use `notes-project.sty` for the two values required by the Core:
 \RequirePackage{notes-common}
 ```
 
-Keep shared formatting and reference parsing in `notes-common.sty`. Keep Git
-repository URLs, deployment secrets, and notes-server registry JSON out of
-`notes-project.sty`.
+Keep shared formatting and reference parsing in `notes-common.sty`. Keep
+notes-server registry JSON, Git repository URLs, and deployment secrets out
+of `notes-project.sty` — all three live on the server side.
 
-Load optional course-specific notation packages after the Core. Keep their
+Use the notes server's public origin without a trailing slash for
+`\notesServerRoot`. The `\notesProjectName` value must match the project ID
+the server was registered with; see the identity contract in
+[server.md](server.md).
+
+## Loading notation packages
+
+Load any notation packages this project needs after the Core. Keep their
 implementations in separate files rather than growing `notes-project.sty`:
 
 ```tex
@@ -26,7 +42,7 @@ implementations in separate files rather than growing `notes-project.sty`:
 \RequirePackage{qm-notations}
 ```
 
-When a portable notation package exposes a reference-target hook with
+When a notation package exposes a cross-reference-target hook via
 `\providecommand`, set a project-specific destination before loading it:
 
 ```tex
@@ -35,34 +51,20 @@ When a portable notation package exposes a reference-target hook with
 \RequirePackage{qm-notations}
 ```
 
-For a portable subject package, make its default target project-qualified, such
-as `quantum-mechanics::ch03::def:commutator`. A dependent course can then load
-the package without changing the link. Override only when the owning project
-or server differs.
+See [notation-packages.md](notation-packages.md) for the authoring side of
+these packages and how the hook pattern works. Keep in mind:
 
-Treat subject packages as optional dependencies. Vendor or otherwise track the
-needed `.sty` file inside the dependent repository; do not use `../` paths into
-a sibling course checkout.
-
-## Identity contract
-
-Keep the following values equal where they represent the same project:
-
-| Location | Value |
-|---|---|
-| `notes-project.sty` | `\notesProjectName` |
-| course `latex_target/manifest.json` | `project` |
-| repository checkout beneath `NOTES_SOURCES_ROOT` | folder name |
-| server `config/<project>/config.json` | directory name and `project` |
-| server `config/<project>/manifest.json` | `project` |
-| public URL | first path segment after the host |
-| CI workflow | project environment value and deploy path |
-
-Use the public origin without a trailing slash for `\notesServerRoot`.
+- Vendor a notation package's `.sty` into any course that uses it. Do not
+  use `../` paths into a sibling course checkout — they are not portable.
+- Prefer a project-qualified default target in the hook (such as
+  `quantum-mechanics::ch03::def:commutator`) so a dependent course inherits
+  the correct link without overriding anything. Override only when the
+  owning project or notes server differs.
 
 ## Verification
 
-Search all identity-bearing files for placeholders and mismatched project IDs.
-Compile a document containing an external `\xref` and inspect the emitted URL.
-Do not create server-owned configuration inside a course repository; report the
-server-side registration as a separate required action when it is out of scope.
+Compile a document that exercises a cross-project or cross-server `\xref`
+and inspect the emitted URL to confirm it matches
+`\notesServerRoot`/`\notesProjectName`. Verifying the project is actually
+registered on the notes server is a server-side concern — see
+[server.md](server.md).
