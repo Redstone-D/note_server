@@ -20,6 +20,8 @@
 \RequirePackage{hyperref}
 \RequirePackage[nameinlink]{cleveref}
 \RequirePackage{xparse}
+\RequirePackage{datetime2}
+\DTMsetstyle{iso}
 
 \setlength{\parindent}{0pt}
 \pagestyle{empty}
@@ -727,3 +729,10 @@
   }
 
 \ExplSyntaxOff
+
+% Build-time footer on the last page: italic, right-aligned, black,
+% carrying the ISO timestamp of the compile including timezone offset.
+\AtEndDocument{%
+  \par\vfill\noindent\hrulefill\par
+  \hfill\textit{\footnotesize Compiled: \DTMnow}\par
+}
